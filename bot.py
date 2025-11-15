@@ -5,7 +5,7 @@ import json
 import calendar
 from datetime import datetime, timedelta
 
-TOKEN = os.environ.get("8210809315:AAHf42Gmbeivwgsv8QQiyfmtlpAD6Pt3nQc")
+TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 if not TOKEN:
     print("❌ Lỗi: Không tìm thấy TELEGRAM_BOT_TOKEN trong environment variables!")
     print("Vui lòng thêm token vào Secrets.")
