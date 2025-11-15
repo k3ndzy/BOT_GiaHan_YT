@@ -1,3 +1,22 @@
+
+# --- START: Minimal HTTP server for Render ping ---
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import threading
+
+class PingHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is running")
+
+def run_server():
+    server = HTTPServer(('0.0.0.0', 10000), PingHandler)
+    server.serve_forever()
+
+threading.Thread(target=run_server).start()
+# --- END: Minimal HTTP server ---
+
+
 import os
 import time
 import json
@@ -24,7 +43,6 @@ if not MASTER_SECRET:
 
 BASE_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 DATA_FILE = "farms_data.json"
-
 
 # ================== ENCRYPTION (AES-256 / FERNET) ==================
 
@@ -69,7 +87,7 @@ def load_data():
     data.setdefault("user_states", {})
     data.setdefault("credentials", {})
 
-    # bảo đảm mỗi farm có email_logins & reminder_history
+    # bảo đảm mỗi farm có email_logins
     for farm in data["farms"]:
         farm.setdefault("reminder_history", [])
         farm.setdefault("email_logins", {})
@@ -118,17 +136,6 @@ def send_document(chat_id, file_path, caption=""):
             print("Lỗi send_document:", e)
 
 
-def answer_callback_query(callback_query_id, text=""):
-    url = BASE_URL + "/answerCallbackQuery"
-    data = {"callback_query_id": callback_query_id}
-    if text:
-        data["text"] = text
-    try:
-        requests.post(url, data=data, timeout=10)
-    except Exception as e:
-        print("Lỗi answerCallbackQuery:", e)
-
-
 # ================== MENU & HELP ==================
 
 
@@ -155,8 +162,8 @@ def get_menu_text():
 /bat_tat_nhac - Bật/Tắt nhắc
 
 🔐 <b>Login email (theo farm):</b>
-/set_mail_login - Lưu password / 2FA + ngày tham gia + thời gian dùng + Facebook
-/get_mail_login - Xem & copy thông tin login email
+/set_mail_login - Lưu password / 2FA cho mail
+/get_mail_login - Xem password / 2FA của mail
 
 ℹ️ <b>Khác:</b>
 /huy - Hủy thao tác hiện tại
@@ -167,13 +174,31 @@ def get_menu_text():
 def handle_start(chat_id):
     keyboard = {
         "keyboard": [
-            [{"text": "➕ Thêm"}, {"text": "📋 Danh sách"}],
-            [{"text": "📊 Thống kê"}, {"text": "📆 Báo cáo tuần"}],
-            [{"text": "📅 Báo cáo hôm nay"}, {"text": "💾 Sao lưu"}],
-            [{"text": "📤 Xuất CSV"}, {"text": "🔔 Bật/Tắt nhắc"}],
+            [{
+                "text": "➕ Thêm"
+            }, {
+                "text": "📋 Danh sách"
+            }],
+            [{
+                "text": "📊 Thống kê"
+            }, {
+                "text": "📆 Báo cáo tuần"
+            }],
+            [{
+                "text": "📅 Báo cáo hôm nay"
+            }, {
+                "text": "💾 Sao lưu"
+            }],
+            [{
+                "text": "📤 Xuất CSV"
+            }, {
+                "text": "🔔 Bật/Tắt nhắc"
+            }],
         ],
-        "resize_keyboard": True,
-        "one_time_keyboard": False,
+        "resize_keyboard":
+        True,
+        "one_time_keyboard":
+        False,
     }
     send_message(chat_id, get_menu_text(), reply_markup=keyboard)
 
@@ -186,8 +211,8 @@ def handle_help(chat_id):
 • /thong_ke, /bao_cao_ngay, /bao_cao_tuan, /lich_su: Thống kê & lịch sử.
 • /sao_luu, /xuat_csv: Sao lưu & export dữ liệu.
 • /bat_tat_nhac: Bật/tắt nhắc hạn từng farm.
-• /set_mail_login: Lưu mật khẩu / 2FA + ngày tham gia + thời gian sử dụng + Facebook cho email trong farm.
-• /get_mail_login: Xem lại & copy email / password / 2FA của email trong farm.
+• /set_mail_login: Lưu mật khẩu / 2FA cho email trong farm.
+• /get_mail_login: Xem lại mật khẩu / 2FA cho email trong farm.
 • /huy: Huỷ thao tác đang làm.
 """
     send_message(chat_id, help_text)
@@ -231,7 +256,8 @@ def start_add_farm(chat_id, data):
         "farm": {},
     }
     save_data(data)
-    send_message(chat_id, "📝 <b>Thêm farm/khách hàng mới</b>\n\nNhập <b>tên</b>:")
+    send_message(chat_id,
+                 "📝 <b>Thêm farm/khách hàng mới</b>\n\nNhập <b>tên</b>:")
 
 
 def handle_add_farm_flow(chat_id, text, data):
@@ -242,15 +268,14 @@ def handle_add_farm_flow(chat_id, text, data):
     if step == "name":
         farm["name"] = text.strip()
         state["step"] = "owner"
-        save_data(data)
-        send_message(chat_id, f"✅ Tên: <b>{farm['name']}</b>\n\nNhập <b>email chủ</b>:")
+        send_message(
+            chat_id, f"✅ Tên: <b>{farm['name']}</b>\n\nNhập <b>email chủ</b>:")
 
     elif step == "owner":
         farm["owner_email"] = text.strip()
         farm["members"] = []
         state["step"] = "member"
         state["idx"] = 1
-        save_data(data)
         send_message(
             chat_id,
             "Nhập <b>email thành viên 1</b> (hoặc gõ <code>skip</code> nếu không có):",
@@ -261,22 +286,22 @@ def handle_add_farm_flow(chat_id, text, data):
             farm["members"].append(text.strip())
         if state["idx"] < 5:
             state["idx"] += 1
-            save_data(data)
             send_message(
                 chat_id,
                 f"Nhập <b>email thành viên {state['idx']}</b> (hoặc <code>skip</code>):",
             )
         else:
             state["step"] = "start"
-            save_data(data)
-            send_message(chat_id, "Nhập <b>ngày bắt đầu</b> (DD/MM/YYYY):")
+            send_message(
+                chat_id,
+                "Nhập <b>ngày bắt đầu</b> (DD/MM/YYYY):",
+            )
 
     elif step == "start":
         try:
             d = datetime.strptime(text.strip(), "%d/%m/%Y")
             farm["start_date"] = d.strftime("%Y-%m-%d")
             state["step"] = "renewal"
-            save_data(data)
             send_message(
                 chat_id,
                 f"✅ Ngày bắt đầu: <b>{text.strip()}</b>\n\nNhập <b>ngày gia hạn hàng tháng</b> (1-31):",
@@ -290,7 +315,6 @@ def handle_add_farm_flow(chat_id, text, data):
             if 1 <= day <= 31:
                 farm["renewal_day"] = day
                 state["step"] = "price"
-                save_data(data)
                 send_message(
                     chat_id,
                     f"✅ Ngày gia hạn: <b>Ngày {day}</b>\n\nNhập <b>giá tiền</b> (VD: 50000):",
@@ -322,9 +346,8 @@ def handle_add_farm_flow(chat_id, text, data):
             else:
                 mem_str = "   (Không có)\n"
 
-            start_str = datetime.strptime(farm["start_date"], "%Y-%m-%d").strftime(
-                "%d/%m/%Y"
-            )
+            start_str = datetime.strptime(farm["start_date"],
+                                          "%Y-%m-%d").strftime("%d/%m/%Y")
 
             summary = f"""✅ <b>Đã thêm thành công!</b>
 
@@ -348,17 +371,16 @@ def handle_add_farm_flow(chat_id, text, data):
 def handle_list_farms(chat_id, data):
     farms = data.get("farms", [])
     if not farms:
-        send_message(chat_id, "📭 Chưa có dữ liệu. Dùng /them_farm để thêm mới.")
+        send_message(chat_id,
+                     "📭 Chưa có dữ liệu. Dùng /them_farm để thêm mới.")
         return
     msg = f"📋 <b>Danh sách ({len(farms)})</b>\n\n"
     for i, f in enumerate(farms, 1):
         st = "🔔" if f.get("reminder_enabled", True) else "🔕"
-        msg += (
-            f"<b>{i}. {f['name']}</b> {st}\n"
-            f"   👤 {f['owner_email']}\n"
-            f"   📅 Ngày {f['renewal_day']}\n"
-            f"   💰 {f['price']:,} VNĐ\n\n"
-        )
+        msg += (f"<b>{i}. {f['name']}</b> {st}\n"
+                f"   👤 {f['owner_email']}\n"
+                f"   📅 Ngày {f['renewal_day']}\n"
+                f"   💰 {f['price']:,} VNĐ\n\n")
     send_message(chat_id, msg)
 
 
@@ -393,7 +415,8 @@ def handle_view_farm_flow(chat_id, text, data):
     start_str = target.get("start_date", "")
     if start_str:
         try:
-            start_str = datetime.strptime(start_str, "%Y-%m-%d").strftime("%d/%m/%Y")
+            start_str = datetime.strptime(start_str,
+                                          "%Y-%m-%d").strftime("%d/%m/%Y")
         except Exception:
             pass
     else:
@@ -421,35 +444,10 @@ def handle_view_farm_flow(chat_id, text, data):
 🔐 Mật khẩu / 2FA KHÔNG hiển thị ở đây.
 Dùng lệnh /get_mail_login để xem login từng email.
 """
-
-    # Inline keyboard copy email cho chủ + từng member
-    inline_keyboard = []
-    owner_email = target.get("owner_email")
-    if owner_email:
-        inline_keyboard.append(
-            [
-                {
-                    "text": "📋 Copy Email (chủ)",
-                    "callback_data": f"ce|{owner_email}",
-                }
-            ]
-        )
-    for em in members:
-        inline_keyboard.append(
-            [
-                {
-                    "text": f"📋 Copy {em}",
-                    "callback_data": f"ce|{em}",
-                }
-            ]
-        )
-
-    reply_markup = {"inline_keyboard": inline_keyboard} if inline_keyboard else None
-
     if str(chat_id) in data["user_states"]:
         del data["user_states"][str(chat_id)]
         save_data(data)
-    send_message(chat_id, detail, reply_markup=reply_markup)
+    send_message(chat_id, detail)
 
 
 # ================== EDIT / DELETE ==================
@@ -527,7 +525,8 @@ def handle_edit_farm_flow(chat_id, text, data):
                 name = data["farms"][idx]["name"]
                 del data["user_states"][str(chat_id)]
                 save_data(data)
-                send_message(chat_id, f"✅ Đã cập nhật ngày gia hạn của <b>{name}</b>.")
+                send_message(chat_id,
+                             f"✅ Đã cập nhật ngày gia hạn của <b>{name}</b>.")
             else:
                 send_message(chat_id, "❌ Vui lòng nhập số 1-31.")
         except ValueError:
@@ -615,12 +614,10 @@ def handle_search_farm_flow(chat_id, text, data):
         return
     msg = f"🔍 <b>Kết quả ({len(res)})</b>\n\n"
     for i, f in enumerate(res, 1):
-        msg += (
-            f"<b>{i}. {f['name']}</b>\n"
-            f"   👤 {f['owner_email']}\n"
-            f"   📅 Ngày {f['renewal_day']}\n"
-            f"   💰 {f['price']:,} VNĐ\n\n"
-        )
+        msg += (f"<b>{i}. {f['name']}</b>\n"
+                f"   👤 {f['owner_email']}\n"
+                f"   📅 Ngày {f['renewal_day']}\n"
+                f"   💰 {f['price']:,} VNĐ\n\n")
     send_message(chat_id, msg)
 
 
@@ -675,14 +672,16 @@ def handle_daily_report(chat_id, data):
     today_str = today.strftime("%d/%m/%Y")
     res = []
     for f in farms:
-        rd = get_next_renewal_date(
-            f.get("renewal_day", 1),
-            from_date=today.replace(hour=0, minute=0, second=0, microsecond=0),
-        )
+        rd = get_next_renewal_date(f.get("renewal_day", 1),
+                                   from_date=today.replace(hour=0,
+                                                           minute=0,
+                                                           second=0,
+                                                           microsecond=0))
         if rd.date() == today.date():
             res.append(f)
     if not res:
-        send_message(chat_id, f"📅 Hôm nay ({today_str}) không có farm nào đến hạn.")
+        send_message(chat_id,
+                     f"📅 Hôm nay ({today_str}) không có farm nào đến hạn.")
         return
     msg = f"📅 <b>Báo cáo hôm nay ({today_str})</b>\n\n"
     for f in res:
@@ -748,7 +747,8 @@ def handle_history_flow(chat_id, text, data):
         msg = f"🕒 <b>Lịch sử nhắc - {target['name']}</b>\n\nChưa có lần nhắc nào."
     else:
         msg = f"🕒 <b>Lịch sử nhắc - {target['name']}</b>\n\n"
-        for h in sorted(history, key=lambda x: x.get("date", ""), reverse=True)[:20]:
+        for h in sorted(history, key=lambda x: x.get("date", ""),
+                        reverse=True)[:20]:
             t = h.get("type", "")
             label = {
                 "3days": "Trước 3 ngày",
@@ -791,29 +791,25 @@ def handle_export_csv(chat_id, data):
     fn = f"farms_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     with open(fn, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(
-            [
-                "name",
-                "owner_email",
-                "members",
-                "start_date",
-                "renewal_day",
-                "price",
-                "chat_id",
-            ]
-        )
+        w.writerow([
+            "name",
+            "owner_email",
+            "members",
+            "start_date",
+            "renewal_day",
+            "price",
+            "chat_id",
+        ])
         for x in farms:
-            w.writerow(
-                [
-                    x.get("name", ""),
-                    x.get("owner_email", ""),
-                    ",".join(x.get("members", [])),
-                    x.get("start_date", ""),
-                    x.get("renewal_day", ""),
-                    x.get("price", ""),
-                    x.get("chat_id", ""),
-                ]
-            )
+            w.writerow([
+                x.get("name", ""),
+                x.get("owner_email", ""),
+                ",".join(x.get("members", [])),
+                x.get("start_date", ""),
+                x.get("renewal_day", ""),
+                x.get("price", ""),
+                x.get("chat_id", ""),
+            ])
     send_document(chat_id, fn, "📤 CSV farms")
     os.remove(fn)
 
@@ -872,7 +868,7 @@ def start_set_mail_login(chat_id, data):
         "step": "choose_farm",
     }
     save_data(data)
-    msg = "🔐 <b>Lưu thông tin login cho email</b>\n\nNhập <b>tên farm</b>:\n\n"
+    msg = "🔐 <b>Lưu mật khẩu / 2FA cho email</b>\n\nNhập <b>tên farm</b>:\n\n"
     for f in farms:
         msg += f"• {f['name']}\n"
     send_message(chat_id, msg)
@@ -891,7 +887,9 @@ def handle_set_mail_login_flow(chat_id, text, data):
                 idx = i
                 break
         if idx == -1:
-            send_message(chat_id, f"❌ Không tìm thấy farm <b>{text}</b>. Nhập lại tên farm:")
+            send_message(
+                chat_id,
+                f"❌ Không tìm thấy farm <b>{text}</b>. Nhập lại tên farm:")
             return
         state["farm_index"] = idx
         farm = farms[idx]
@@ -906,7 +904,7 @@ def handle_set_mail_login_flow(chat_id, text, data):
 
         send_message(
             chat_id,
-            f"✅ Đã chọn farm <b>{farm['name']}</b>\n\nDanh sách email:\n{lst}\nNhập <b>số thứ tự</b> email cần lưu thông tin login:",
+            f"✅ Đã chọn farm <b>{farm['name']}</b>\n\nDanh sách email:\n{lst}\nNhập <b>số thứ tự</b> email cần lưu password/2FA:",
         )
 
     elif step == "choose_email":
@@ -932,7 +930,9 @@ def handle_set_mail_login_flow(chat_id, text, data):
         state["password"] = text.strip()
         state["step"] = "twofa"
         save_data(data)
-        send_message(chat_id, "Nhập <b>mã 2FA</b> (hoặc gõ <code>skip</code> nếu không có):")
+        send_message(
+            chat_id,
+            "Nhập <b>mã 2FA</b> (hoặc gõ <code>skip</code> nếu không có):")
 
     elif step == "twofa":
         if text.strip().lower() == "skip":
@@ -941,71 +941,14 @@ def handle_set_mail_login_flow(chat_id, text, data):
             state["twofa"] = text.strip()
         state["step"] = "note"
         save_data(data)
-        send_message(chat_id, "Nhập <b>ghi chú</b> (hoặc gõ <code>skip</code>):")
+        send_message(chat_id,
+                     "Nhập <b>ghi chú</b> (hoặc gõ <code>skip</code>):")
 
     elif step == "note":
         note = "" if text.strip().lower() == "skip" else text.strip()
-        state["note"] = note
-        state["step"] = "join_date"
-        save_data(data)
-        send_message(
-            chat_id,
-            "Nhập <b>ngày tham gia</b> (DD/MM/YYYY) (hoặc gõ <code>skip</code>):",
-        )
-
-    elif step == "join_date":
-        txt = text.strip()
-        if txt.lower() == "skip":
-            state["join_date"] = ""
-        else:
-            try:
-                d = datetime.strptime(txt, "%d/%m/%Y")
-                state["join_date"] = d.strftime("%Y-%m-%d")
-            except ValueError:
-                send_message(chat_id, "❌ Sai định dạng. Nhập lại dạng DD/MM/YYYY hoặc gõ skip:")
-                return
-        state["step"] = "usage_days"
-        save_data(data)
-        send_message(
-            chat_id,
-            "Nhập <b>số ngày sử dụng</b> (vd: 30) (hoặc gõ <code>skip</code>):",
-        )
-
-    elif step == "usage_days":
-        txt = text.strip()
-        if txt.lower() == "skip":
-            state["usage_days"] = 0
-        else:
-            try:
-                days = int(txt)
-                if days < 0:
-                    days = 0
-                state["usage_days"] = days
-            except ValueError:
-                send_message(chat_id, "❌ Vui lòng nhập số ngày hợp lệ hoặc gõ skip:")
-                return
-        state["step"] = "facebook"
-        save_data(data)
-        send_message(
-            chat_id,
-            "Nhập <b>Facebook khách</b> (link hoặc username) (hoặc gõ <code>skip</code>):",
-        )
-
-    elif step == "facebook":
-        txt = text.strip()
-        if txt.lower() == "skip":
-            state["facebook"] = ""
-        else:
-            state["facebook"] = txt
-
         email = state["selected_email"]
         password = state.get("password", "")
         twofa = state.get("twofa", "")
-        note = state.get("note", "")
-        join_date = state.get("join_date", "")
-        usage_days = state.get("usage_days", 0)
-        facebook = state.get("facebook", "")
-
         farms = data.get("farms", [])
         farm = farms[state["farm_index"]]
 
@@ -1017,12 +960,7 @@ def handle_set_mail_login_flow(chat_id, text, data):
         enc = encrypt_text(json.dumps(bundle, ensure_ascii=False))
 
         farm.setdefault("email_logins", {})
-        farm["email_logins"][email] = {
-            "enc": enc,
-            "join_date": join_date,
-            "usage_days": usage_days,
-            "facebook": facebook,
-        }
+        farm["email_logins"][email] = {"enc": enc}
         save_data(data)
 
         if str(chat_id) in data["user_states"]:
@@ -1031,17 +969,9 @@ def handle_set_mail_login_flow(chat_id, text, data):
 
         send_message(
             chat_id,
-            f"""✅ Đã lưu thông tin login cho:
+            f"""✅ Đã lưu login cho:
 📧 <b>{email}</b>
 🧱 Farm: <b>{farm['name']}</b>
-
-Bao gồm:
-- Mật khẩu
-- 2FA
-- Ghi chú
-- Ngày tham gia
-- Thời gian sử dụng
-- Facebook khách
 
 Dùng /get_mail_login để xem lại khi cần.""",
         )
@@ -1057,7 +987,7 @@ def start_get_mail_login(chat_id, data):
         "step": "choose_farm",
     }
     save_data(data)
-    msg = "🔎 <b>Xem thông tin login email</b>\n\nNhập <b>tên farm</b>:\n\n"
+    msg = "🔎 <b>Xem login email</b>\n\nNhập <b>tên farm</b>:\n\n"
     for f in farms:
         msg += f"• {f['name']}\n"
     send_message(chat_id, msg)
@@ -1076,7 +1006,9 @@ def handle_get_mail_login_flow(chat_id, text, data):
                 idx = i
                 break
         if idx == -1:
-            send_message(chat_id, f"❌ Không tìm thấy farm <b>{text}</b>. Nhập lại tên farm:")
+            send_message(
+                chat_id,
+                f"❌ Không tìm thấy farm <b>{text}</b>. Nhập lại tên farm:")
             return
         state["farm_index"] = idx
         farm = farms[idx]
@@ -1105,8 +1037,7 @@ def handle_get_mail_login_flow(chat_id, text, data):
             return
         email = emails[idx - 1]
         farms = data.get("farms", [])
-        farm_index = state["farm_index"]
-        farm = farms[farm_index]
+        farm = farms[state["farm_index"]]
         email_logins = farm.get("email_logins", {})
         entry = email_logins.get(email)
 
@@ -1119,73 +1050,28 @@ def handle_get_mail_login_flow(chat_id, text, data):
             return
 
         try:
-            decoded = decrypt_text(entry.get("enc", ""))
+            decoded = decrypt_text(entry["enc"])
             bundle = json.loads(decoded)
         except Exception as e:
             print("Lỗi giải mã email_login:", e)
-            send_message(chat_id, "❌ Lỗi giải mã dữ liệu. Kiểm tra MASTER_SECRET.")
+            send_message(chat_id,
+                         "❌ Lỗi giải mã dữ liệu. Kiểm tra MASTER_SECRET.")
             return
 
         password = bundle.get("password", "")
         twofa = bundle.get("twofa", "")
         note = bundle.get("note", "")
 
-        join_iso = entry.get("join_date", "")
-        if join_iso:
-            try:
-                join_str = datetime.strptime(join_iso, "%Y-%m-%d").strftime(
-                    "%d/%m/%Y"
-                )
-            except Exception:
-                join_str = join_iso
-        else:
-            join_str = "(Không có)"
-
-        usage_days = entry.get("usage_days", 0)
-        if usage_days:
-            usage_str = f"{usage_days} ngày"
-        else:
-            usage_str = "(Không có)"
-
-        facebook = entry.get("facebook", "")
-        if not facebook:
-            facebook = "(Không có)"
-
-        msg = f"""🔐 <b>Thông tin login cho email</b>
+        msg = f"""🔐 <b>Login cho email</b>
 
 📧 Email: <b>{email}</b>
-
-📅 Tham gia: {join_str}
-🕒 Thời gian sử dụng: {usage_str}
-👤 Facebook: {facebook}
-📝 Ghi chú: {note if note else "(Không có)"}
-
 🔑 Mật khẩu: <code>{password}</code>
 🛡 2FA: <code>{twofa}</code>
+📝 Ghi chú: {note if note else "(Không có)"}
 
-👉 Bạn có thể copy trực tiếp trong Telegram hoặc dùng các nút bên dưới.
+👉 Bạn có thể copy trực tiếp trong Telegram.
 """
-
-        inline_keyboard = [
-            [
-                {
-                    "text": "📋 Copy Email",
-                    "callback_data": f"ce|{email}",
-                }
-            ],
-            [
-                {
-                    "text": "📋 Copy Password",
-                    "callback_data": f"cpw|{farm_index}|{email}",
-                },
-                {
-                    "text": "📋 Copy 2FA",
-                    "callback_data": f"c2f|{farm_index}|{email}",
-                },
-            ],
-        ]
-
-        send_message(chat_id, msg, reply_markup={"inline_keyboard": inline_keyboard})
+        send_message(chat_id, msg)
 
 
 # ================== CANCEL ==================
@@ -1198,78 +1084,6 @@ def cancel_action(chat_id, data):
         send_message(chat_id, "✅ Đã huỷ thao tác hiện tại.")
     else:
         send_message(chat_id, "ℹ️ Không có thao tác nào cần hủy.")
-
-
-# ================== CALLBACK HANDLER (COPY) ==================
-
-
-def handle_callback(callback):
-    data_all = load_data()
-    cb_id = callback.get("id")
-    msg = callback.get("message") or {}
-    chat = msg.get("chat") or {}
-    chat_id = chat.get("id")
-    data_str = callback.get("data") or ""
-
-    if not chat_id or not data_str:
-        if cb_id:
-            answer_callback_query(cb_id)
-        return
-
-    try:
-        if data_str.startswith("ce|"):
-            # Copy Email
-            email = data_str[3:]
-            send_message(chat_id, f"<code>{email}</code>")
-            if cb_id:
-                answer_callback_query(cb_id, "Đã gửi email để copy.")
-        elif data_str.startswith("cpw|"):
-            # Copy Password
-            parts = data_str.split("|", 2)
-            if len(parts) == 3:
-                _, idx_str, email = parts
-                idx = int(idx_str)
-                farms = data_all.get("farms", [])
-                if 0 <= idx < len(farms):
-                    farm = farms[idx]
-                    entry = farm.get("email_logins", {}).get(email)
-                    if entry:
-                        decoded = decrypt_text(entry.get("enc", ""))
-                        bundle = json.loads(decoded)
-                        password = bundle.get("password", "")
-                        send_message(chat_id, f"🔑 Password:\n<code>{password}</code>")
-                        if cb_id:
-                            answer_callback_query(cb_id, "Đã gửi password.")
-                        return
-            if cb_id:
-                answer_callback_query(cb_id, "Không tìm thấy password.")
-        elif data_str.startswith("c2f|"):
-            # Copy 2FA
-            parts = data_str.split("|", 2)
-            if len(parts) == 3:
-                _, idx_str, email = parts
-                idx = int(idx_str)
-                farms = data_all.get("farms", [])
-                if 0 <= idx < len(farms):
-                    farm = farms[idx]
-                    entry = farm.get("email_logins", {}).get(email)
-                    if entry:
-                        decoded = decrypt_text(entry.get("enc", ""))
-                        bundle = json.loads(decoded)
-                        twofa = bundle.get("twofa", "")
-                        send_message(chat_id, f"🛡 2FA:\n<code>{twofa}</code>")
-                        if cb_id:
-                            answer_callback_query(cb_id, "Đã gửi mã 2FA.")
-                        return
-            if cb_id:
-                answer_callback_query(cb_id, "Không tìm thấy 2FA.")
-        else:
-            if cb_id:
-                answer_callback_query(cb_id)
-    except Exception as e:
-        print("Lỗi handle_callback:", e)
-        if cb_id:
-            answer_callback_query(cb_id, "Có lỗi xảy ra.")
 
 
 # ================== REMINDER LOOP ==================
@@ -1292,35 +1106,41 @@ def check_and_send_reminders(data):
 
         def add_hist(kind):
             hist = f.get("reminder_history", [])
-            hist.append(
-                {
-                    "type": kind,
-                    "date": today_str,
-                    "renewal_date": rd.strftime("%Y-%m-%d"),
-                }
-            )
+            hist.append({
+                "type": kind,
+                "date": today_str,
+                "renewal_date": rd.strftime("%Y-%m-%d"),
+            })
             f["reminder_history"] = hist
 
+        # 3 days
         if diff == 3 and f.get("last3") != today_str:
-            send_message(chat_id, f"⏰ <b>{f['name']}</b> còn <b>3 ngày</b> đến hạn.")
+            send_message(chat_id,
+                         f"⏰ <b>{f['name']}</b> còn <b>3 ngày</b> đến hạn.")
             f["last3"] = today_str
             add_hist("3days")
             changed = True
 
+        # 2 days
         if diff == 2 and f.get("last2") != today_str:
-            send_message(chat_id, f"⏰ <b>{f['name']}</b> còn <b>2 ngày</b> đến hạn.")
+            send_message(chat_id,
+                         f"⏰ <b>{f['name']}</b> còn <b>2 ngày</b> đến hạn.")
             f["last2"] = today_str
             add_hist("2days")
             changed = True
 
+        # 1 day
         if diff == 1 and f.get("last1") != today_str:
-            send_message(chat_id, f"🔔 <b>{f['name']}</b> còn <b>1 ngày</b> đến hạn.")
+            send_message(chat_id,
+                         f"🔔 <b>{f['name']}</b> còn <b>1 ngày</b> đến hạn.")
             f["last1"] = today_str
             add_hist("1day")
             changed = True
 
+        # today
         if diff == 0 and f.get("last0") != today_str:
-            send_message(chat_id, f"🚨 <b>{f['name']}</b> HÔM NAY đến hạn thanh toán!")
+            send_message(chat_id,
+                         f"🚨 <b>{f['name']}</b> HÔM NAY đến hạn thanh toán!")
             f["last0"] = today_str
             add_hist("0day")
             changed = True
@@ -1355,12 +1175,6 @@ def main():
         if updates.get("ok"):
             for u in updates["result"]:
                 offset = u["update_id"] + 1
-
-                # Callback query (inline buttons)
-                if "callback_query" in u:
-                    handle_callback(u["callback_query"])
-                    continue
-
                 msg = u.get("message")
                 if not msg:
                     continue
@@ -1409,6 +1223,7 @@ def main():
                 elif text == "/huy":
                     cancel_action(chat_id, data)
 
+                # keyboard buttons
                 elif text == "➕ Thêm":
                     start_add_farm(chat_id, data)
                 elif text == "📋 Danh sách":
@@ -1426,6 +1241,7 @@ def main():
                 elif text == "🔔 Bật/Tắt nhắc":
                     start_toggle_reminder(chat_id, data)
 
+                # flows
                 elif str(chat_id) in data.get("user_states", {}):
                     state = data["user_states"][str(chat_id)]
                     action = state.get("action")
@@ -1450,7 +1266,9 @@ def main():
                         handle_get_mail_login_flow(chat_id, text, data)
 
                 else:
-                    send_message(chat_id, "❌ Lệnh không hợp lệ. Gửi /help để xem hướng dẫn.")
+                    send_message(
+                        chat_id,
+                        "❌ Lệnh không hợp lệ. Gửi /help để xem hướng dẫn.")
 
         time.sleep(1)
 
