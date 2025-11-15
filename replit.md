@@ -1,163 +1,115 @@
-# Telegram Bot Quản Lý Farm YouTube
+# Telegram Reminder Bot
 
 ## Tổng quan
-Bot Telegram toàn diện để quản lý farm YouTube Family với đầy đủ tính năng: thêm/sửa/xóa farm, tìm kiếm, thống kê, sao lưu và nhắc nhở tự động 2 lần.
+Bot Telegram nhắc hạn thanh toán với tính năng mã hóa AES-256 để lưu trữ mật khẩu và 2FA cho từng farm/khách hàng. 
+
+**Version hiện tại: 1.2.0**
+
+Hỗ trợ lưu trữ đầy đủ thông tin:
+- Mật khẩu email (mã hóa)
+- Mã 2FA (mã hóa)  
+- Ghi chú (mã hóa)
+- Ngày tham gia
+- Thời gian sử dụng (số ngày)
+- Facebook khách hàng
+
+**Tính năng nút copy nhanh:**
+- Copy email, password, 2FA chỉ bằng 1 nút bấm
+- Inline keyboard buttons hiện trực tiếp trên tin nhắn
 
 ## Ngày tạo
-15 tháng 11, 2025
+15/11/2025
+
+## Thay đổi gần đây
+### 15/11/2025 - Cập nhật version 1.2.0 - Nút Copy nhanh
+- **Tính năng mới**: Thêm inline keyboard buttons để copy nhanh:
+  - Trong `/xem_farm`: Nút 📋 Copy Email cho chủ và từng thành viên
+  - Trong `/get_mail_login`: 3 nút copy riêng biệt:
+    - 📋 Copy Email
+    - 📋 Copy Password  
+    - 📋 Copy 2FA
+- Callback handler xử lý các nút bấm
+- Gửi dữ liệu dưới dạng `<code>` để dễ copy trong Telegram
+
+### 15/11/2025 - Cập nhật version 1.1.0 với tính năng mới
+- **Tính năng mới**: Thêm thông tin chi tiết cho mỗi email login:
+  - 📅 Ngày tham gia (join_date)
+  - 🕒 Số ngày sử dụng (usage_days)
+  - 👤 Facebook khách hàng (facebook)
+- Cập nhật flows `/set_mail_login` và `/get_mail_login`
+- Tất cả thông tin nhạy cảm (password, 2FA, note) vẫn được mã hóa AES-256
+- Thông tin mới (ngày tham gia, thời gian dùng, Facebook) được lưu không mã hóa
+
+### 15/11/2025 - Sửa lỗi state management (đã fix)
+- Sửa lỗi trong flows `/set_mail_login`, `/get_mail_login`, và `/sua_farm`
+- Vấn đề: Khi thay đổi step trong state, code không lưu data ngay
+- Giải pháp: Thêm `save_data(data)` sau mỗi lần thay đổi `state["step"]`
 
 ## Cấu trúc dự án
-- `bot.py`: File chính chứa toàn bộ logic bot
-- `farms_data.json`: File lưu trữ dữ liệu farm (tự động tạo khi chạy)
+- `bot.py`: File chính chứa toàn bộ logic của bot
+- `farms_data.json`: File lưu trữ dữ liệu farms, user states, và credentials (được mã hóa)
 - `pyproject.toml`: Cấu hình dependencies
+- `README.txt`: Hướng dẫn sử dụng và deploy
 
-## Tính năng đầy đủ
+## Dependencies
+- `requests>=2.32.0`: Gọi Telegram API
+- `cryptography>=43.0.0`: Mã hóa AES-256 cho passwords/2FA
 
-### 📋 Quản lý Farm
-1. **Thêm farm mới** (`/them_farm`): Bot hỏi từng bước
-   - Tên farm
-   - Email chủ farm
-   - 5 email thành viên (hỏi lần lượt)
-   - Ngày bắt đầu farm (DD/MM/YYYY)
-   - Ngày gia hạn hàng tháng (1-31)
-   - Giá tiền
+## Environment Variables
+- `TELEGRAM_BOT_TOKEN`: Token từ @BotFather
+- `MASTER_SECRET`: Chuỗi bí mật để mã hóa dữ liệu nhạy cảm
 
-2. **Xem danh sách** (`/danh_sach`): Liệt kê tất cả farm với trạng thái nhắc nhở
+## Tính năng chính
 
-3. **Xem chi tiết farm** (`/xem_farm`): Hiển thị đầy đủ thông tin 1 farm
-   - Tất cả 5 email thành viên
-   - Ngày bắt đầu, ngày gia hạn
-   - Trạng thái nhắc nhở
+### Quản lý Farm
+- `/them_farm`: Thêm farm/khách hàng mới
+- `/danh_sach`: Xem danh sách tất cả farms
+- `/xem_farm`: Xem chi tiết farm
+- `/sua_farm`: Sửa thông tin farm
+- `/xoa_farm`: Xóa farm
+- `/tim_farm`: Tìm kiếm farm theo tên/email
 
-4. **Sửa thông tin** (`/sua_farm`): Sửa đổi farm đã tồn tại
-   - Email chủ farm
-   - Ngày gia hạn
-   - Giá tiền
+### Báo cáo & Thống kê
+- `/thong_ke`: Thống kê tổng quan
+- `/bao_cao_ngay`: Báo cáo farms đến hạn hôm nay
+- `/bao_cao_tuan`: Báo cáo farms đến hạn trong 7 ngày tới
+- `/lich_su`: Xem lịch sử nhắc nhở
 
-5. **Xóa farm** (`/xoa_farm`): Xóa farm không còn sử dụng
+### Quản lý Dữ liệu
+- `/sao_luu`: Backup file JSON
+- `/xuat_csv`: Export dữ liệu ra CSV
+- `/bat_tat_nhac`: Bật/tắt nhắc nhở cho từng farm
 
-6. **Tìm kiếm farm** (`/tim_farm`): Tìm farm theo tên hoặc email
+### Quản lý Login Email
+- `/set_mail_login`: Lưu thông tin đầy đủ cho email:
+  - Mật khẩu (mã hóa AES-256)
+  - 2FA (mã hóa AES-256)
+  - Ghi chú (mã hóa AES-256)
+  - Ngày tham gia
+  - Số ngày sử dụng
+  - Facebook khách hàng
+- `/get_mail_login`: Xem tất cả thông tin login đã lưu
+  - **Mới**: Có nút copy nhanh email, password, 2FA
 
-### 📊 Thống kê & Công cụ
+### Xem chi tiết Farm
+- `/xem_farm`: Xem thông tin chi tiết farm
+  - **Mới**: Có nút copy nhanh email chủ và các thành viên
 
-7. **Thống kê tổng quan** (`/thong_ke`):
-   - Tổng số farm đang quản lý
-   - Tổng chi phí hàng tháng
-   - Số farm đang bật nhắc nhở
-   - Farm sắp hết hạn trong 7 ngày tới
+## Workflow
+- **Telegram Bot**: Chạy `python bot.py` để khởi động bot
 
-8. **Sao lưu dữ liệu** (`/sao_luu`):
-   - Gửi file JSON chứa tất cả farm
-   - Bao gồm thời gian backup
-   - Để backup an toàn
-
-9. **Bật/Tắt nhắc nhở** (`/bat_tat_nhac`):
-   - Tắt tạm thời nhắc nhở cho farm cụ thể
-   - Không cần xóa farm
-
-### ⏰ Nhắc nhở tự động (nâng cấp)
-- Bot kiểm tra **mỗi giờ**
-- Nhắc **2 lần**:
-  - Lần 1: **2 ngày trước** ngày gia hạn
-  - Lần 2: **1 ngày trước** ngày gia hạn
-- Chỉ nhắc farm có bật nhắc nhở
-- Thông báo gồm: tên farm, ngày gia hạn, giá tiền, email chủ farm
-
-### 🛠 Lệnh khác
-- `/start` - Menu chính với tất cả lệnh
-- `/help` - Hướng dẫn sử dụng chi tiết
-- `/huy` - Hủy thao tác hiện tại
-
-## Cấu trúc dữ liệu (JSON)
-
-Mỗi farm có các trường:
-- `name`: Tên farm
-- `owner_email`: Email chủ farm
-- `members`: Danh sách 5 email thành viên (array)
-- `start_date`: Ngày bắt đầu farm (YYYY-MM-DD)
-- `renewal_day`: Ngày gia hạn hàng tháng (1-31)
-- `price`: Giá tiền (VNĐ)
-- `chat_id`: ID chat Telegram để gửi nhắc nhở
-- `reminder_enabled`: Bật/tắt nhắc nhở (boolean, mặc định true)
-- `last_reminded_2days`: Ngày gửi nhắc lần 1 (YYYY-MM-DD)
-- `last_reminded_1day`: Ngày gửi nhắc lần 2 (YYYY-MM-DD)
+## Bảo mật
+- Tất cả mật khẩu và 2FA được mã hóa bằng AES-256 (Fernet)
+- MASTER_SECRET được sử dụng để tạo khóa mã hóa
+- Không lưu trữ thông tin nhạy cảm dưới dạng plain text
 
 ## Cách sử dụng
-1. Tạo bot mới trên Telegram qua @BotFather
-2. Lấy token của bot
-3. Thêm token vào Secrets với tên `TELEGRAM_BOT_TOKEN`
-4. Chạy bot
-5. Gửi `/start` trên Telegram để bắt đầu
-6. Sử dụng `/them_farm` để thêm farm đầu tiên
-7. Bot sẽ tự động nhắc đúng giờ!
+1. Tìm bot trên Telegram bằng username đã tạo
+2. Gửi `/start` để bắt đầu
+3. Sử dụng menu hoặc các lệnh để quản lý farms
+4. Bot sẽ tự động nhắc nhở khi đến hạn thanh toán
 
-## Thư viện sử dụng
-- `requests`: Gọi Telegram Bot API
-- `json`: Lưu trữ dữ liệu
-- `datetime`: Tính toán ngày tháng
-- `calendar`: Xử lý tháng có số ngày khác nhau
-
-## Ghi chú kỹ thuật
-- **State management**: Dùng JSON để theo dõi trạng thái hội thoại từng user
-- **Data persistence**: Lưu vào file `farms_data.json`
-- **Reminder system**: 
-  - Kiểm tra mỗi giờ (3600 giây)
-  - Tính toán chính xác với `datetime` và `calendar`
-  - Xử lý đúng tháng 28/29/30/31 ngày
-  - Nhắc 2 lần: trước 2 ngày và trước 1 ngày
-  - Lưu riêng ngày nhắc cho từng farm
-- **Backup**: Gửi file JSON qua Telegram API
-- **Search**: Tìm kiếm trong tên farm và tất cả email
-
-## Ví dụ sử dụng
-
-### Thêm farm mới:
-```
-User: /them_farm
-Bot: Nhập tên farm:
-User: Farm 1
-Bot: Nhập email chủ farm:
-User: chu@gmail.com
-Bot: Nhập email thành viên 1:
-...
-Bot: Nhập ngày bắt đầu farm (DD/MM/YYYY):
-User: 15/11/2025
-Bot: Nhập ngày gia hạn (1-31):
-User: 15
-Bot: Nhập giá tiền:
-User: 50000
-Bot: ✅ Đã thêm farm thành công!
-```
-
-### Sửa farm:
-```
-User: /sua_farm
-Bot: Nhập tên farm cần sửa:
-User: Farm 1
-Bot: Chọn: 1-Email, 2-Ngày gia hạn, 3-Giá
-User: 3
-Bot: Nhập giá tiền mới:
-User: 60000
-Bot: ✅ Đã cập nhật giá!
-```
-
-### Xem thống kê:
-```
-User: /thong_ke
-Bot: 
-📊 Thống kê Farm YouTube
-📦 Tổng số farm: 5
-💰 Tổng chi phí/tháng: 250,000 VNĐ
-🔔 Farm đang bật nhắc: 5/5
-⏰ Farm sắp hết hạn (7 ngày tới): 2 farm
-   • Farm 1 - còn 2 ngày
-   • Farm 2 - HÔM NAY
-```
-
-## Lịch sử cập nhật
-- **15/11/2025**: Phiên bản 1.0 - Bot cơ bản với thêm/xóa/xem farm, nhắc 1 lần
-- **15/11/2025**: Phiên bản 2.0 - Thêm đầy đủ tính năng:
-  - Sửa farm, xem chi tiết, tìm kiếm
-  - Thống kê, sao lưu, bật/tắt nhắc
-  - Nhắc 2 lần (2 ngày + 1 ngày trước)
-  - Lưu ngày bắt đầu farm
+## Lưu ý
+- Bot chạy 24/7 trên Replit
+- Dữ liệu được lưu trong `farms_data.json`
+- Backup thường xuyên bằng lệnh `/sao_luu`

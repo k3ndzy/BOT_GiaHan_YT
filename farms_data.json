@@ -1,20 +1,37 @@
 {
   "farms": [
     {
-      "name": "Farm Hiếu 1",
+      "name": "Hiếu 1",
       "owner_email": "cennick.19cz@gmail.com",
       "members": [
-        "hami25498@gmail.com",
-        "duyduc96.duy8e@gmail.com",
-        "Newlife.nicedream@gmail.com",
-        "chuducanh18052004@gmail.com",
-        "buithuylien.289@gmail.com"
+        "hami25498@gmail.com"
       ],
+      "start_date": "2025-09-21",
       "renewal_day": 21,
       "price": 950000,
-      "chat_id": 710725426
+      "chat_id": 710725426,
+      "reminder_enabled": true,
+      "reminder_history": [],
+      "email_logins": {
+        "cennick.19cz@gmail.com": {
+          "enc": "gAAAAABpGJQBfr1h-VYcuOAZOCMHFeHYEhIwUvrbKUbn1DRQYlsVE4kKjAB9SgU18XnrlN5Wzj6vnUDgBc7mlDiUYGDIgpEVGSGJ_i6sl16LWYcwhgQuIEAeKWn2w0QIfH_wMx9WiuvJ",
+          "join_date": "2025-02-11",
+          "usage_days": 365,
+          "facebook": ""
+        }
+      }
     }
   ],
-  "user_states": {},
-  "last_check": null
+  "user_states": {
+    "710725426": {
+      "action": "delete_farm",
+      "step": "select"
+    },
+    "1058771793": {
+      "action": "add_farm",
+      "step": "name",
+      "farm": {}
+    }
+  },
+  "credentials": {}
 }

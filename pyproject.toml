@@ -1,8 +1,10 @@
+
 [project]
-name = "repl-nix-workspace"
-version = "0.1.0"
-description = "Add your description here"
+name = "telegram-reminder-bot"
+version = "1.2.0"
+description = "Telegram bot nhắc hạn + lưu mật khẩu/2FA + ngày tham gia + thời gian sử dụng + Facebook + nút copy email/password/2FA"
 requires-python = ">=3.11"
 dependencies = [
-    "requests>=2.32.5",
+    "requests>=2.32.0",
+    "cryptography>=43.0.0",
 ]
